@@ -128,7 +128,8 @@ function showFallback(msg) {
 function submit() {
   var btn = $("send");
   $("err").textContent = ""; btn.disabled = true; btn.textContent = "送信中…";
-  var body = { action: "liff_order", date: $("date").value, memo: $("memo").value,
+  var ctx = ""; try { ctx = (liff.getContext() || {}).type || ""; } catch (e) {}
+  var body = { action: "liff_order", context: ctx, date: $("date").value, memo: $("memo").value,
                lines: inputs.map(function (x) { return { item: x.it.item, qty: x.i.value }; }) };
   var tryOnce = function () { return api(body); };
   tryOnce().catch(function () { return new Promise(function (ok) { setTimeout(ok, 1500); }).then(tryOnce); })
@@ -140,11 +141,13 @@ function submit() {
       }
       $("form").hidden = true; $("foot").hidden = true;
       $("sum").textContent = res.summary; $("done").hidden = false; window.scrollTo(0, 0);
+      if (res.posted === "group") $("donenote").textContent = "お店のグループにも注文内容をお知らせしました。この画面は自動で閉じます。";
       // 開いたトーク（グループ・1対1）に、お客様のメッセージとして注文内容を送る
       liff.sendMessages([{ type: "text", text: D.confirmWord + "\n" + res.summary }])
         .then(function () { setTimeout(function () { liff.closeWindow(); }, 1800); })
         .catch(function () {
-          $("donenote").textContent = "注文は承りました。トークへの送信はできなかったので、この画面を閉じてください。";
+          $("donenote").textContent = "注文は承りました。この画面を閉じてください。";
+          if (res.posted !== "group") { api({ action: "liff_send_failed" }).catch(function () {}); }
         });
     })
     .catch(function () { showFallback(); });
